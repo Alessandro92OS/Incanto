@@ -1,0 +1,26 @@
+{
+  "name": "Incanto Ops+ Cloud v4",
+  "short_name": "Incanto",
+  "description": "Team‑Zeiterfassung (PWA) mit Einsätzen, Portal & Cloud‑Sync (Supabase).",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6fbfb",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "icons/incanto_180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/incanto_192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icons/incanto_512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

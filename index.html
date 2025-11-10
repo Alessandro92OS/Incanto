@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="friendly">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Incanto Ops+ Cloud v4 — Team‑Zeiterfassung</title>
+  <meta name="description" content="Incanto Ops+ Cloud v4 — Team‑Zeiterfassung mit Einsätzen, Portal & Cloud‑Sync (Supabase), offline‑fähig als PWA." />
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/svg+xml" href="icons/incanto.svg">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/incanto_180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/incanto_192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/incanto_512.png">
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="config.js"></script>
+  <script defer src="sync.js"></script>
+</head>
+<body>
+  <!-- LOGIN OVERLAY (high z-index, hides after login) -->
+  <div id="auth" class="auth cover">
+    <div class="auth-card">
+      <div class="brand-badge">
+        <div class="badge-bg">
+          <picture>
+            <source srcset="icons/incanto.svg" type="image/svg+xml">
+            <img src="icons/incanto_180.png" alt="Incanto Logo">
+          </picture>
+        </div>
+        <div class="name">Incanto</div>
+        <div class="tagline">Ops+ Cloud v4</div>
+      </div>
+      <div id="auth-setup" class="auth-view">
+        <h2>Erstinstallation (lokal)</h2>
+        <p>Lege eine Admin‑PIN fest. Danach kannst du Mitarbeitende anlegen.</p>
+        <label><span>Admin‑PIN (4–8 Ziffern)</span><input id="setup-admin-pin" type="password" inputmode="numeric" minlength="4" maxlength="8"></label>
+        <div class="btn-row mt"><button id="btn-setup-admin" class="btn primary">Admin anlegen</button></div>
+        <p class="hint">Optional kannst du anschließend in <strong>Einstellungen</strong> die Supabase‑Daten hinterlegen, um Cloud‑Sync zu aktivieren.</p>
+      </div>
+      <div id="auth-login" class="auth-view hidden">
+        <h2>Anmelden</h2>
+        <label><span>Benutzer</span><select id="login-user"></select></label>
+        <label><span>PIN</span><input id="login-pin" type="password" inputmode="numeric" minlength="4" maxlength="8"></label>
+        <div class="btn-row mt"><button id="btn-login" class="btn primary">Login</button></div>
+        <p class="hint mt">Rollen: Putzkraft, Personalmanagement, Geschäftsführung</p>
+      </div>
+    </div>
+  </div>
+
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo-chip">
+        <picture>
+          <source srcset="icons/incanto.svg" type="image/svg+xml">
+          <img src="icons/incanto_192.png" alt="Incanto">
+        </picture>
+      </div>
+      <div>
+        <div class="title">Incanto Ops+ Cloud v4</div>
+        <div class="subtitle"><span id="user-role-label">—</span> • <span id="user-name-label">—</span></div>
+      </div>
+    </div>
+    <nav class="nav" id="role-nav">
+      <!-- Buttons are injected role‑aware by app.js -->
+    </nav>
+  </header>
+
+  <main class="container">
+    <!-- ORDERS -->
+    <section id="tab-orders" class="tab active">
+      <div class="card">
+        <h2>Einsätze</h2>
+        <div class="grid-3">
+          <label><span>Datum (ab)</span><input id="orders-from" type="date"></label>
+          <label><span>Datum (bis)</span><input id="orders-to" type="date"></label>
+          <label><span>Nur meine</span><input id="orders-mine" type="checkbox" checked></label>
+        </div>
+        <div class="btn-row mt-s">
+          <button id="btn-orders-filter" class="btn">Filtern</button>
+          <button id="btn-order-new" class="btn ghost">Neuer Einsatz</button>
+          <button id="btn-sync-orders" class="btn ghost">Sync</button>
+        </div>
+      </div>
+      <div class="card"><div id="orders-list" class="orders"></div></div>
+    </section>
+
+    <!-- TIMER -->
+    <section id="tab-timer" class="tab">
+      <div class="card">
+        <h2>Arbeitszeit erfassen</h2>
+        <div class="grid-2">
+          <label><span>Arbeitsbereich</span><select id="timer-area"></select></label>
+          <label><span>Notiz (optional)</span><input id="timer-note" type="text" placeholder="z. B. Objekt, Tätigkeit"></label>
+        </div>
+        <div class="timer-display" id="timer-display">00:00:00</div>
+        <div class="btn-row">
+          <button id="btn-start" class="btn primary">Start</button>
+          <button id="btn-stop" class="btn danger" disabled>Stop</button>
+          <button id="btn-geo-test" class="btn ghost">Standort testen</button>
+        </div>
+        <div id="geo-status" class="geo-status hint"></div>
+      </div>
+      <div class="card"><h3>Heute</h3><div id="today-summary" class="summary"></div></div>
+    </section>
+
+    <!-- ENTRIES -->
+    <section id="tab-entries" class="tab">
+      <div class="card">
+        <h2>Zeiteinträge</h2>
+        <div class="grid-3">
+          <label><span>Von</span><input id="filter-from" type="date"></label>
+          <label><span>Bis</span><input id="filter-to" type="date"></label>
+          <label><span>Mitarbeiter</span><select id="filter-user"></select></label>
+        </div>
+        <div id="entries-list" class="entries"></div>
+      </div>
+    </section>
+
+    <!-- TASKS -->
+    <section id="tab-tasks" class="tab">
+      <div class="card">
+        <h2>Aufgaben</h2>
+        <div class="grid-3">
+          <label><span>Titel</span><input id="task-title" type="text"></label>
+          <label><span>Arbeitsbereich</span><select id="task-area"></select></label>
+          <label><span>Zuordnen an</span><select id="task-assign"></select></label>
+        </div>
+        <label class="mt-s block"><span>Beschreibung</span><input id="task-desc" type="text"></label>
+        <div class="btn-row mt-s"><button id="btn-task-add" class="btn">Aufgabe hinzufügen</button></div>
+      </div>
+      <div class="card"><h3>Offene Aufgaben</h3><div id="tasks-list" class="tasks"></div></div>
+    </section>
+
+    <!-- AREAS -->
+    <section id="tab-areas" class="tab">
+      <div class="card">
+        <h2>Arbeitsbereiche</h2>
+        <div class="grid-3">
+          <label><span>Name</span><input id="area-name" type="text"></label>
+          <label><span>Farbe</span><input id="area-color" type="color" value="#14b8a6"></label>
+          <div class="btn-row align-end"><button id="btn-area-add" class="btn">Hinzufügen</button></div>
+        </div>
+        <ul id="areas-list" class="projects"></ul>
+      </div>
+    </section>
+
+    <!-- PORTAL -->
+    <section id="tab-portal" class="tab">
+      <div class="card">
+        <h2>Kundenportal</h2>
+        <p class="hint">Entweder: <strong>Online‑Portal</strong> (über Supabase Token), oder <strong>statische HTML‑Seite</strong> erzeugen.</p>
+        <div class="grid-3">
+          <label><span>Kunde</span><select id="portal-client"></select></label>
+          <label><span>Von</span><input id="portal-from" type="date"></label>
+          <label><span>Bis</span><input id="portal-to" type="date"></label>
+        </div>
+        <div class="btn-row mt-s">
+          <a class="btn" href="portal.html" target="_blank" rel="noopener">Online‑Portal öffnen</a>
+          <button id="btn-portal-generate" class="btn ghost">Statische Portal‑Seite erzeugen</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Kunden verwalten</h3>
+        <div id="clients-list" class="projects"></div>
+        <div class="btn-row mt-s"><button id="btn-client-new" class="btn">Neuer Kunde</button></div>
+      </div>
+
+      <div class="card">
+        <h3>Freigaben (Admin)</h3>
+        <p class="hint">Einträge/Einsätze markieren, die im Portal sichtbar sein sollen.</p>
+        <div id="approvals" class="entries"></div>
+      </div>
+    </section>
+
+    <!-- EXPORT -->
+    <section id="tab-export" class="tab">
+      <div class="card">
+        <h2>Export</h2>
+        <div class="grid-3">
+          <label><span>Von</span><input id="export-from" type="date"></label>
+          <label><span>Bis</span><input id="export-to" type="date"></label>
+          <label><span>Mitarbeiter</span><select id="export-user"></select></label>
+        </div>
+        <div class="btn-row mt-s">
+          <button id="btn-export-csv" class="btn">CSV exportieren (Deutsch)</button>
+          <button id="btn-export-json" class="btn ghost">JSON exportieren</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADMIN -->
+    <section id="tab-admin" class="tab">
+      <div class="card">
+        <h2>Benutzerverwaltung</h2>
+        <div class="grid-3">
+          <label><span>Name</span><input id="user-name" type="text"></label>
+          <label><span>Rolle</span>
+            <select id="user-role">
+              <option value="putzkraft">Putzkraft</option>
+              <option value="personal">Personalmanagement</option>
+              <option value="geschaeft">Geschäftsführung (Admin)</option>
+            </select>
+          </label>
+          <label><span>PIN (4–8 Ziffern)</span><input id="user-pin" type="password" inputmode="numeric" minlength="4" maxlength="8"></label>
+        </div>
+        <div class="btn-row mt-s"><button id="btn-user-add" class="btn">Mitarbeiter anlegen</button></div>
+        <ul id="users-list" class="users"></ul>
+      </div>
+
+      <div class="card">
+        <h2>Zeiten korrigieren</h2>
+        <p class="hint">Nur Admin</p>
+        <div id="admin-entries" class="entries"></div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="tab-settings" class="tab">
+      <div class="card">
+        <h2>Einstellungen</h2>
+        <div class="grid-3">
+          <label><span>Rundung</span><select id="set-rounding"><option value="0">Keine</option><option value="5">5 Minuten</option><option value="15">15 Minuten</option></select></label>
+          <label class="switch"><input id="set-geo" type="checkbox"><span>Geoposition beim Start/Stop mitschreiben</span></label>
+          <label><span>Design</span><select id="set-theme"><option value="friendly">Freundlich</option><option value="glass">Trendig</option><option value="classic">Klassisch</option></select></label>
+        </div>
+        <div class="card mt">
+          <h3>Cloud‑Sync (Supabase)</h3>
+          <div class="grid-3">
+            <label><span>URL</span><input id="sb-url" type="text" placeholder="https://xxxx.supabase.co"></label>
+            <label><span>Anon Key</span><input id="sb-key" type="text" placeholder="ey..."></label>
+            <label><span>Portal Token (Test)</span><input id="sb-portal-token" type="text" placeholder="optional"></label>
+          </div>
+          <div class="btn-row mt-s">
+            <button id="btn-save-supabase" class="btn">Speichern</button>
+            <button id="btn-sync-all" class="btn ghost">Alles synchronisieren</button>
+          </div>
+          <p class="hint">Die **Anon‑Key** darf klientseitig benutzt werden, wenn **RLS** aktiv ist.</p>
+        </div>
+        <div class="btn-row mt">
+          <button id="btn-backup" class="btn">Backup (JSON)</button>
+          <label class="btn ghost file-label"><input type="file" id="restore-file" accept="application/json" hidden>Backup wiederherstellen</label>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <small>© 2025 Incanto • Ops+ Cloud v4 (PWA)</small>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
